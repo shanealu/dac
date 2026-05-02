@@ -83,8 +83,10 @@ export async function recordWithdrawal(input: WithdrawalInput) {
   return db.transaction((tx) => {
     const bar = tx.select().from(bars).where(eq(bars.id, input.barId)).get();
     if (!bar) throw new BarOwnershipError(); // also covers genuine "not found"
-    if (bar.currentAccountId !== input.accountId) throw new BarOwnershipError();
+    // Status check before ownership: once withdrawn, current_account_id is null, so
+    // an ownership-first check would mask the real reason (spec §8.2 expects 409 here).
     if (bar.status === "withdrawn") throw new BarAlreadyWithdrawnError(bar.serialNumber);
+    if (bar.currentAccountId !== input.accountId) throw new BarOwnershipError();
 
     tx.update(bars)
       .set({ status: "withdrawn", currentAccountId: null, updatedAt: new Date() })
