@@ -54,7 +54,12 @@ export function PriceUpdateForm({ metals }: { metals: { code: string; name: stri
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string) => {
+                      const m = metals.find((mm) => mm.code === value);
+                      return m ? `${m.name} (${m.code})` : value;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {metals.map((m) => (

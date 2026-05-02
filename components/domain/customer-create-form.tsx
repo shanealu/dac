@@ -63,7 +63,15 @@ export function CustomerCreateForm({ onCreated }: { onCreated?: (c: Customer) =>
           onValueChange={(v) => form.setValue("clientType", v as "retail" | "institutional")}
         >
           <SelectTrigger>
-            <SelectValue />
+            <SelectValue>
+              {(value: string) =>
+                value === "retail"
+                  ? "Retail (unallocated)"
+                  : value === "institutional"
+                    ? "Institutional (allocated)"
+                    : value
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="retail">Retail (unallocated)</SelectItem>

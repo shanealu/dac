@@ -106,7 +106,12 @@ export function DepositForm({
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {(value: string) => {
+                        const m = metals.find((mm) => mm.code === value);
+                        return m ? `${m.name} (${m.code})` : value;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {metals.map((m) => (
@@ -129,7 +134,12 @@ export function DepositForm({
                   onValueChange={(v) => field.onChange(Number(v))}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {(value: string) => {
+                        const vault = vaults.find((vv) => String(vv.id) === value);
+                        return vault ? `${vault.code} — ${vault.name}` : value;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {vaults.map((v) => (

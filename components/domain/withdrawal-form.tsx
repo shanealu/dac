@@ -159,7 +159,14 @@ export function WithdrawalForm({
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {(value: string) => {
+                              const h = unallocated.find((u) => u.metalCode === value);
+                              return h
+                                ? `${h.metalName} — ${fmtKg(h.quantityKg)} available`
+                                : <span className="text-muted-foreground">Select a metal</span>;
+                            }}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {unallocated.map((h) => (
@@ -182,7 +189,12 @@ export function WithdrawalForm({
                         onValueChange={(v) => field.onChange(Number(v))}
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {(value: string) => {
+                              const vault = vaults.find((vv) => String(vv.id) === value);
+                              return vault?.code ?? <span className="text-muted-foreground">Select a vault</span>;
+                            }}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {vaults.map((v) => (
@@ -242,7 +254,14 @@ export function WithdrawalForm({
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a bar" />
+                        <SelectValue>
+                          {(value: string) => {
+                            const bar = allocated.find((b) => b.barId === value);
+                            return bar
+                              ? `${bar.serialNumber} — ${bar.metalName} ${fmtKg(bar.weightKg)}`
+                              : <span className="text-muted-foreground">Select a bar</span>;
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {allocated.map((b) => (
