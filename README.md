@@ -160,6 +160,25 @@ A ninth, **bar transfer between accounts**, is intentionally out of scope. It wo
 
 ---
 
+## Tests
+
+```bash
+bun run test            # one-shot
+bun run test:watch      # watch mode
+```
+
+Vitest, exercising the service layer directly. The seam is the 8 edge cases above — 7 are covered (the 8th, decimal precision, is implicit in the others' assertions on `quantity_kg` round-tripping):
+
+| File | Covers |
+|---|---|
+| `tests/services/deposit.test.ts` | unallocated deposit increases the holding + writes a ledger row; allocated deposit creates a bar `in_custody` + writes a ledger row |
+| `tests/services/withdrawal.test.ts` | overdraft → `InsufficientBalanceError`; foreign-account bar → `BarOwnershipError`; concurrent withdrawals of the same bar → exactly one succeeds, the other gets `BarAlreadyWithdrawnError` |
+| `tests/services/valuation.test.ts` | pool share derives correctly across three customers (10/5/5 kg → 50/25/25%); valuation returns `null` for unpriced metals without throwing |
+
+**Test isolation.** Each vitest worker gets its own throwaway SQLite file under `os.tmpdir()` (set in `tests/setup.ts` *before* any service module is imported, so the connection in `lib/db/client.ts` opens against the test DB). `tests/helpers/db.ts` runs Drizzle migrations once, then truncates and re-seeds metals + one vault between tests. The same single-fork worker handles every file, so there's no cross-DB contention.
+
+---
+
 ## API examples
 
 All endpoints return `{ data }` on success or `{ error: { code, message, details? } }` on failure.
