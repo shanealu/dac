@@ -5,113 +5,107 @@ import { accounts, bars, customers, transactions, unallocatedHoldings } from "@/
 import { sql, desc, eq } from "drizzle-orm";
 import { metals } from "@/lib/db/schema";
 import { getCurrentPrices } from "@/lib/services/market-price.service";
-import { D, ZERO } from "@/lib/decimal";
+import { D } from "@/lib/decimal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MetalMark } from "@/components/domain/metal-mark";
+import { StatLabel } from "@/components/domain/stat-label";
 import { fmtDate, fmtKg, fmtUSD } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+const RECENT_TX_LIMIT = 8;
+
 async function loadStats() {
-  const [{ count: customerCount }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(customers)
-    .all();
-  const [{ count: accountCount }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(accounts)
-    .all();
-  const [{ count: barCount }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(bars)
-    .where(eq(bars.status, "in_custody"))
-    .all();
+  const [
+    [customerCountRow],
+    [accountCountRow],
+    [barCountRow],
+    prices,
+    unallocatedTotals,
+    allocatedTotals,
+    recent,
+  ] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(customers).all(),
+    db.select({ count: sql<number>`count(*)` }).from(accounts).all(),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(bars)
+      .where(eq(bars.status, "in_custody"))
+      .all(),
+    getCurrentPrices(),
+    db
+      .select({
+        metalCode: metals.code,
+        metalName: metals.name,
+        total: sql<string>`SUM(CAST(${unallocatedHoldings.quantityKg} AS REAL))`,
+      })
+      .from(unallocatedHoldings)
+      .innerJoin(metals, eq(metals.id, unallocatedHoldings.metalId))
+      .groupBy(unallocatedHoldings.metalId, metals.code, metals.name)
+      .all(),
+    db
+      .select({
+        metalCode: metals.code,
+        metalName: metals.name,
+        total: sql<string>`SUM(CAST(${bars.weightKg} AS REAL))`,
+      })
+      .from(bars)
+      .innerJoin(metals, eq(metals.id, bars.metalId))
+      .where(eq(bars.status, "in_custody"))
+      .groupBy(bars.metalId, metals.code, metals.name)
+      .all(),
+    db
+      .select({
+        id: transactions.id,
+        ref: transactions.referenceNumber,
+        type: transactions.type,
+        storageType: transactions.storageType,
+        quantityKg: transactions.quantityKg,
+        metalCode: metals.code,
+        createdAt: transactions.createdAt,
+        accountNumber: accounts.accountNumber,
+        accountId: accounts.id,
+      })
+      .from(transactions)
+      .innerJoin(metals, eq(metals.id, transactions.metalId))
+      .innerJoin(accounts, eq(accounts.id, transactions.accountId))
+      .orderBy(desc(transactions.createdAt))
+      .limit(RECENT_TX_LIMIT)
+      .all(),
+  ]);
 
-  const prices = await getCurrentPrices();
-  const priceMap = new Map(prices.map((p) => [p.metalId, p.pricePerKg]));
-
-  const unallocatedTotals = await db
-    .select({
-      metalId: unallocatedHoldings.metalId,
-      metalCode: metals.code,
-      metalName: metals.name,
-      total: sql<string>`SUM(CAST(${unallocatedHoldings.quantityKg} AS REAL))`,
-    })
-    .from(unallocatedHoldings)
-    .innerJoin(metals, eq(metals.id, unallocatedHoldings.metalId))
-    .groupBy(unallocatedHoldings.metalId, metals.code, metals.name)
-    .all();
-
-  const allocatedTotals = await db
-    .select({
-      metalId: bars.metalId,
-      metalCode: metals.code,
-      metalName: metals.name,
-      total: sql<string>`SUM(CAST(${bars.weightKg} AS REAL))`,
-      bars: sql<number>`COUNT(*)`,
-    })
-    .from(bars)
-    .innerJoin(metals, eq(metals.id, bars.metalId))
-    .where(eq(bars.status, "in_custody"))
-    .groupBy(bars.metalId, metals.code, metals.name)
-    .all();
-
-  // Combine per-metal totals
   type Row = { metalCode: string; metalName: string; quantityKg: string; valueUSD: string | null };
   const rows = new Map<string, Row>();
-  for (const u of unallocatedTotals) {
-    rows.set(u.metalCode, {
-      metalCode: u.metalCode,
-      metalName: u.metalName,
-      quantityKg: D(u.total ?? 0).toString(),
+  const upsert = (code: string, name: string, qty: string) => {
+    const existing = rows.get(code);
+    const newQty = D(existing?.quantityKg ?? 0).plus(D(qty ?? 0));
+    rows.set(code, {
+      metalCode: code,
+      metalName: name,
+      quantityKg: newQty.toString(),
       valueUSD: null,
     });
-  }
-  for (const a of allocatedTotals) {
-    const existing = rows.get(a.metalCode);
-    const qty = D(existing?.quantityKg ?? 0).plus(D(a.total ?? 0));
-    rows.set(a.metalCode, {
-      metalCode: a.metalCode,
-      metalName: a.metalName,
-      quantityKg: qty.toString(),
-      valueUSD: null,
-    });
-  }
-  let totalUSD = ZERO.plus(0);
+  };
+  for (const u of unallocatedTotals) upsert(u.metalCode, u.metalName, u.total ?? "0");
+  for (const a of allocatedTotals) upsert(a.metalCode, a.metalName, a.total ?? "0");
+
+  let totalUSD = D(0);
   let anyValued = false;
   for (const row of rows.values()) {
-    const metal = prices.find((p) => p.metalCode === row.metalCode);
-    if (metal?.pricePerKg) {
-      row.valueUSD = D(row.quantityKg).times(metal.pricePerKg).toFixed(2);
+    const price = prices.find((p) => p.metalCode === row.metalCode)?.pricePerKg;
+    if (price) {
+      row.valueUSD = D(row.quantityKg).times(price).toFixed(2);
       totalUSD = totalUSD.plus(D(row.valueUSD));
       anyValued = true;
     }
   }
 
-  const recent = await db
-    .select({
-      id: transactions.id,
-      ref: transactions.referenceNumber,
-      type: transactions.type,
-      storageType: transactions.storageType,
-      quantityKg: transactions.quantityKg,
-      metalCode: metals.code,
-      createdAt: transactions.createdAt,
-      accountNumber: accounts.accountNumber,
-      accountId: accounts.id,
-    })
-    .from(transactions)
-    .innerJoin(metals, eq(metals.id, transactions.metalId))
-    .innerJoin(accounts, eq(accounts.id, transactions.accountId))
-    .orderBy(desc(transactions.createdAt))
-    .limit(8)
-    .all();
-
   return {
-    customerCount,
-    accountCount,
-    barCount,
+    customerCount: customerCountRow.count,
+    accountCount: accountCountRow.count,
+    barCount: barCountRow.count,
     rows: Array.from(rows.values()).sort((a, b) => a.metalCode.localeCompare(b.metalCode)),
     totalUSD: anyValued ? totalUSD.toFixed(2) : null,
     recent,
@@ -191,9 +185,7 @@ export default async function DashboardPage() {
                 className="flex items-center justify-between rounded-lg border bg-card/50 px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-md bg-muted font-mono text-xs">
-                    {row.metalCode}
-                  </span>
+                  <MetalMark code={row.metalCode} size="sm" />
                   <div>
                     <div className="font-medium">{row.metalName}</div>
                     <div className="text-xs text-muted-foreground">{fmtKg(row.quantityKg)}</div>
@@ -307,9 +299,7 @@ function StatCard({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {label}
-            </div>
+            <StatLabel>{label}</StatLabel>
             <div className="mt-2 font-mono text-2xl font-semibold">{value}</div>
             {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
           </div>

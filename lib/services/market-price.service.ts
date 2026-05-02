@@ -3,7 +3,7 @@ import { db } from "../db/client";
 import { marketPrices, metals } from "../db/schema";
 import { D, toDb } from "../decimal";
 import { NotFoundError } from "../errors";
-import type { MarketPriceCreateInput } from "../validation";
+import type { MarketPriceCreateInput, MetalCode } from "../validation";
 
 export async function recordMarketPrice(input: MarketPriceCreateInput) {
   const metal = await db.select().from(metals).where(eq(metals.code, input.metalCode)).get();
@@ -63,13 +63,13 @@ export async function getPriceForMetal(metalId: number): Promise<string | null> 
   return row?.pricePerKg ?? null;
 }
 
-export async function getPriceForCode(code: string): Promise<string | null> {
+export async function getPriceForCode(code: MetalCode): Promise<string | null> {
   const metal = await db.select().from(metals).where(eq(metals.code, code)).get();
   if (!metal) return null;
   return getPriceForMetal(metal.id);
 }
 
-export async function listPriceHistory(metalCode: string, limit = 50) {
+export async function listPriceHistory(metalCode: MetalCode, limit = 50) {
   const metal = await db.select().from(metals).where(eq(metals.code, metalCode)).get();
   if (!metal) throw new NotFoundError("Metal", metalCode);
   return db

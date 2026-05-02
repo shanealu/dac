@@ -34,6 +34,13 @@ const purity = z
   );
 
 export const metalCode = z.enum(["XAU", "XAG", "XPT"]);
+export type MetalCode = z.infer<typeof metalCode>;
+
+export const transactionType = z.enum(["deposit", "withdrawal"]);
+export type TransactionType = z.infer<typeof transactionType>;
+
+export const storageType = z.enum(["allocated", "unallocated"]);
+export type StorageType = z.infer<typeof storageType>;
 
 export const customerCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),

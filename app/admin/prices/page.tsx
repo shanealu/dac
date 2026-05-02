@@ -6,30 +6,32 @@ import { getCurrentPrices } from "@/lib/services/market-price.service";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/domain/page-header";
 import { PriceUpdateForm } from "@/components/domain/price-update-form";
+import { MetalMark } from "@/components/domain/metal-mark";
 import { fmtDate, fmtRelative, fmtUSD } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPricesPage() {
-  const metalRows = await db.select().from(metals).orderBy(metals.code).all();
-  const current = await getCurrentPrices();
-
-  // Recent price history across all metals (top 25)
-  const history = await db
-    .select({
-      id: marketPrices.id,
-      metalCode: metals.code,
-      metalName: metals.name,
-      pricePerKg: marketPrices.pricePerKg,
-      currency: marketPrices.currency,
-      effectiveAt: marketPrices.effectiveAt,
-      source: marketPrices.source,
-    })
-    .from(marketPrices)
-    .innerJoin(metals, eq(metals.id, marketPrices.metalId))
-    .orderBy(desc(marketPrices.effectiveAt))
-    .limit(25)
-    .all();
+  const PRICE_HISTORY_LIMIT = 25;
+  const [metalRows, current, history] = await Promise.all([
+    db.select().from(metals).orderBy(metals.code).all(),
+    getCurrentPrices(),
+    db
+      .select({
+        id: marketPrices.id,
+        metalCode: metals.code,
+        metalName: metals.name,
+        pricePerKg: marketPrices.pricePerKg,
+        currency: marketPrices.currency,
+        effectiveAt: marketPrices.effectiveAt,
+        source: marketPrices.source,
+      })
+      .from(marketPrices)
+      .innerJoin(metals, eq(metals.id, marketPrices.metalId))
+      .orderBy(desc(marketPrices.effectiveAt))
+      .limit(PRICE_HISTORY_LIMIT)
+      .all(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -71,9 +73,7 @@ export default async function AdminPricesPage() {
                 className="flex items-center justify-between rounded-md border bg-card/50 p-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-md border bg-muted/40 font-mono text-[11px] font-semibold tracking-wider">
-                    {p.metalCode}
-                  </span>
+                  <MetalMark code={p.metalCode} size="sm" />
                   <div>
                     <div className="font-medium">{p.metalName}</div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -125,9 +125,7 @@ export default async function AdminPricesPage() {
                     >
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <span className="grid size-7 place-items-center rounded-md border bg-muted/40 font-mono text-[10px] font-semibold tracking-wider">
-                            {p.metalCode}
-                          </span>
+                          <MetalMark code={p.metalCode} size="xs" />
                           <span className="text-sm">{p.metalName}</span>
                         </div>
                       </td>

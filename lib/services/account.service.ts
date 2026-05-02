@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import {
   accounts,
@@ -108,7 +108,7 @@ export async function getAccount(id: string) {
     .from(transactions)
     .innerJoin(metals, eq(metals.id, transactions.metalId))
     .where(eq(transactions.accountId, id))
-    .orderBy(transactions.createdAt)
+    .orderBy(desc(transactions.createdAt))
     .limit(50)
     .all();
 
@@ -121,7 +121,7 @@ export async function getAccount(id: string) {
     ...row.account,
     customer: row.customer,
     holdings: { unallocated, allocated },
-    recentTransactions: recentTransactions.reverse(),
+    recentTransactions,
     valuation,
   };
 }

@@ -3,17 +3,11 @@ import {
   listPriceHistory,
   recordMarketPrice,
 } from "@/lib/services/market-price.service";
-import { marketPriceCreateSchema } from "@/lib/validation";
+import { marketPriceCreateSchema, metalCode } from "@/lib/validation";
 
 export const GET = withErrorHandling(async (req: Request) => {
   const url = new URL(req.url);
-  const code = url.searchParams.get("metalCode");
-  if (!code) {
-    return Response.json(
-      { error: { code: "BAD_REQUEST", message: "metalCode query param is required" } },
-      { status: 400 },
-    );
-  }
+  const code = metalCode.parse(url.searchParams.get("metalCode"));
   const history = await listPriceHistory(code);
   return ok(history);
 });

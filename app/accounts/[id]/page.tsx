@@ -15,11 +15,13 @@ import { db } from "@/lib/db/client";
 import { metals, unallocatedHoldings, vaults } from "@/lib/db/schema";
 import { getAccount } from "@/lib/services/account.service";
 import { NotFoundError } from "@/lib/errors";
-import { fmtDate, fmtKg, fmtPct, fmtRelative, fmtUSD } from "@/lib/format";
+import { fmtDate, fmtKg, fmtPct, fmtPurity, fmtRelative, fmtUSD } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarWithdrawButton } from "@/components/domain/account-bar-withdraw-button";
+import { MetalMark } from "@/components/domain/metal-mark";
+import { StatLabel } from "@/components/domain/stat-label";
 
 export const dynamic = "force-dynamic";
 
@@ -39,25 +41,28 @@ export default async function AccountDetailPage({
   const { id } = await params;
 
   let account: AccountView;
+  let vaultRows: VaultRow[];
+  let poolTotalsRows: { metalCode: string; total: string | null }[];
   try {
-    account = await getAccount(id);
+    [account, vaultRows, poolTotalsRows] = await Promise.all([
+      getAccount(id),
+      db.select().from(vaults).all(),
+      db
+        .select({
+          metalCode: metals.code,
+          total: sql<string>`SUM(CAST(${unallocatedHoldings.quantityKg} AS REAL))`,
+        })
+        .from(unallocatedHoldings)
+        .innerJoin(metals, eq(metals.id, unallocatedHoldings.metalId))
+        .groupBy(unallocatedHoldings.metalId, metals.code)
+        .all(),
+    ]);
   } catch (err) {
     if (err instanceof NotFoundError) notFound();
     throw err;
   }
 
-  const vaultRows = await db.select().from(vaults).all();
   const vaultById = new Map<number, VaultRow>(vaultRows.map((v) => [v.id, v]));
-
-  const poolTotalsRows = await db
-    .select({
-      metalCode: metals.code,
-      total: sql<string>`SUM(CAST(${unallocatedHoldings.quantityKg} AS REAL))`,
-    })
-    .from(unallocatedHoldings)
-    .innerJoin(metals, eq(metals.id, unallocatedHoldings.metalId))
-    .groupBy(unallocatedHoldings.metalId, metals.code)
-    .all();
   const poolByCode = new Map<string, string>(
     poolTotalsRows.map((p) => [p.metalCode, p.total ?? "0"]),
   );
@@ -84,7 +89,6 @@ export default async function AccountDetailPage({
         <span className="font-mono text-foreground">{account.accountNumber}</span>
       </nav>
 
-      {/* Hero — vault-paperwork feel */}
       <section className="border-y bg-card">
         <div className="grid grid-cols-1 gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[1fr_1.2fr] lg:gap-16">
           <div className="space-y-6">
@@ -144,7 +148,6 @@ export default async function AccountDetailPage({
         </div>
       </section>
 
-      {/* Per-metal valuation cards */}
       <section className="mt-8">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {account.valuation.perMetal.length === 0 ? (
@@ -157,7 +160,6 @@ export default async function AccountDetailPage({
         </div>
       </section>
 
-      {/* Tabs */}
       <section className="mt-12">
         <Tabs defaultValue="unallocated" className="w-full">
           <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">
@@ -185,14 +187,6 @@ export default async function AccountDetailPage({
   );
 }
 
-function StatLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
 function TabTrigger({
   value,
   count,
@@ -212,14 +206,6 @@ function TabTrigger({
         {count}
       </span>
     </TabsTrigger>
-  );
-}
-
-function MetalMark({ code }: { code: string }) {
-  return (
-    <div className="grid size-10 place-items-center rounded-md border bg-muted/40 font-mono text-[11px] font-semibold tracking-wider">
-      {code}
-    </div>
   );
 }
 
@@ -370,7 +356,7 @@ function AllocatedTab({
               <div>
                 <StatLabel>Purity</StatLabel>
                 <div className="mt-1 font-mono text-sm tabular-nums">
-                  {Number(bar.purity).toFixed(4)}
+                  {fmtPurity(bar.purity)}
                 </div>
               </div>
               <div>

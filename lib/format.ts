@@ -18,6 +18,11 @@ export const fmtPct = (numerator: string, denominator: string, frac = 2): string
   return `${new Decimal(numerator).div(d).times(100).toDecimalPlaces(frac).toString()}%`;
 };
 
+export const fmtPurity = (value: string | null | undefined, frac = 4): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  return new Decimal(value).toDecimalPlaces(frac).toFixed(frac);
+};
+
 export const fmtDate = (iso: string | Date): string => {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return d.toLocaleString("en-US", {

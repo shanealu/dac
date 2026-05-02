@@ -6,7 +6,9 @@ import { accounts, bars, customers, metals, vaults } from "@/lib/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/domain/page-header";
-import { fmtDate, fmtKg } from "@/lib/format";
+import { MetalMark } from "@/components/domain/metal-mark";
+import { StatLabel } from "@/components/domain/stat-label";
+import { fmtDate, fmtKg, fmtPurity } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -84,15 +86,13 @@ export default async function AdminBarsPage() {
                       <td className="px-5 py-3 font-mono text-xs tracking-wide">{r.serialNumber}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <span className="grid size-7 place-items-center rounded-md border bg-muted/40 font-mono text-[10px] font-semibold tracking-wider">
-                            {r.metalCode}
-                          </span>
+                          <MetalMark code={r.metalCode} size="xs" />
                           <span className="text-sm">{r.metalName}</span>
                         </div>
                       </td>
                       <td className="px-5 py-3 text-right font-mono tabular-nums">{fmtKg(r.weightKg)}</td>
                       <td className="px-5 py-3 text-right font-mono tabular-nums">
-                        {Number(r.purity).toFixed(4)}
+                        {fmtPurity(r.purity)}
                       </td>
                       <td className="px-5 py-3 font-mono text-xs">{r.vaultCode}</td>
                       <td className="px-5 py-3">
@@ -146,12 +146,10 @@ function Stat({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {label}
-            </div>
+            <StatLabel>{label}</StatLabel>
             <div
-              className={`mt-2 font-mono text-3xl tabular-nums tracking-tight ${
-                muted ? "text-muted-foreground" : ""
+              className={`mt-2 font-mono text-3xl tabular-nums tracking-tight${
+                muted ? " text-muted-foreground" : ""
               }`}
             >
               {value}

@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Field } from "@/components/domain/field";
 import { customerCreateSchema, type CustomerCreateInput } from "@/lib/validation";
 import { ApiError, api } from "@/lib/api/client";
 import type { Customer } from "@/lib/db/schema";
@@ -80,22 +80,3 @@ export function CustomerCreateForm({ onCreated }: { onCreated?: (c: Customer) =>
   );
 }
 
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}

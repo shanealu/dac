@@ -1,25 +1,31 @@
 import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/db/client";
 import { metals, transactions } from "@/lib/db/schema";
 import { ok, withErrorHandling } from "@/lib/api/handler";
+import { transactionType } from "@/lib/validation";
+
+const querySchema = z.object({
+  accountId: z.uuid().optional(),
+  type: transactionType.optional(),
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  perPage: z.coerce.number().int().min(1).max(100).default(50),
+});
 
 export const GET = withErrorHandling(async (req: Request) => {
   const url = new URL(req.url);
-  const accountId = url.searchParams.get("accountId");
-  const type = url.searchParams.get("type") as "deposit" | "withdrawal" | null;
-  const from = url.searchParams.get("from");
-  const to = url.searchParams.get("to");
-  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1));
-  const perPage = Math.min(100, Math.max(1, Number(url.searchParams.get("perPage") ?? 50)));
+  const params = querySchema.parse(Object.fromEntries(url.searchParams));
 
-  const filters = [
-    accountId ? eq(transactions.accountId, accountId) : undefined,
-    type ? eq(transactions.type, type) : undefined,
-    from ? gte(transactions.createdAt, new Date(from)) : undefined,
-    to ? lte(transactions.createdAt, new Date(to)) : undefined,
-  ].filter(Boolean);
-
-  const where = filters.length ? and(...filters) : undefined;
+  const where = and(
+    ...[
+      params.accountId ? eq(transactions.accountId, params.accountId) : undefined,
+      params.type ? eq(transactions.type, params.type) : undefined,
+      params.from ? gte(transactions.createdAt, new Date(params.from)) : undefined,
+      params.to ? lte(transactions.createdAt, new Date(params.to)) : undefined,
+    ].filter((c): c is NonNullable<typeof c> => c !== undefined),
+  );
 
   const rows = await db
     .select({
@@ -40,9 +46,11 @@ export const GET = withErrorHandling(async (req: Request) => {
     .innerJoin(metals, eq(metals.id, transactions.metalId))
     .where(where)
     .orderBy(desc(transactions.createdAt))
-    .limit(perPage)
-    .offset((page - 1) * perPage)
+    .limit(params.perPage)
+    .offset((params.page - 1) * params.perPage)
     .all();
 
-  return ok(rows, { headers: { "X-Page": String(page), "X-Per-Page": String(perPage) } });
+  return ok(rows, {
+    headers: { "X-Page": String(params.page), "X-Per-Page": String(params.perPage) },
+  });
 });
