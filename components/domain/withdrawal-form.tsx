@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -22,7 +22,6 @@ import { ApiError, api } from "@/lib/api/client";
 import { fmtKg } from "@/lib/format";
 
 type Vault = { id: number; code: string; name: string };
-type Metal = { code: string; name: string };
 type UnallocatedHolding = { metalCode: string; metalName: string; quantityKg: string };
 type AllocatedBar = {
   barId: string;
@@ -35,13 +34,11 @@ type AllocatedBar = {
 
 export function WithdrawalForm({
   accountId,
-  metals,
   vaults,
   unallocated,
   allocated,
 }: {
   accountId: string;
-  metals: Metal[];
   vaults: Vault[];
   unallocated: UnallocatedHolding[];
   allocated: AllocatedBar[];
@@ -73,8 +70,12 @@ export function WithdrawalForm({
     defaultValues: initialDefaults,
   });
 
-  const watchedMetal = form.watch("metalCode" as never) as unknown as string | undefined;
-  const watchedBarId = form.watch("barId" as never) as unknown as string | undefined;
+  const watchedMetal = useWatch({ control: form.control, name: "metalCode" as never }) as
+    | string
+    | undefined;
+  const watchedBarId = useWatch({ control: form.control, name: "barId" as never }) as
+    | string
+    | undefined;
 
   const balance = useMemo(() => {
     if (storageType !== "unallocated") return null;

@@ -1,12 +1,5 @@
 import { db, raw } from "./client";
-import {
-  accounts,
-  customers,
-  marketPrices,
-  metals,
-  unallocatedHoldings,
-  vaults,
-} from "./schema";
+import { accounts, customers, marketPrices, metals, vaults } from "./schema";
 
 const log = (msg: string) => console.log(`[seed] ${msg}`);
 

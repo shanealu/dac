@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon, ArrowUpIcon } from "lucide-react";
 import { db } from "@/lib/db/client";
-import { metals, vaults } from "@/lib/db/schema";
+import { vaults } from "@/lib/db/schema";
 import { getAccount } from "@/lib/services/account.service";
 import { NotFoundError } from "@/lib/errors";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +21,7 @@ export default async function WithdrawPage({ params }: { params: Promise<{ id: s
     throw err;
   }
 
-  const [metalRows, vaultRows] = await Promise.all([
-    db.select().from(metals).all(),
-    db.select().from(vaults).all(),
-  ]);
+  const vaultRows = await db.select().from(vaults).all();
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -62,13 +59,12 @@ export default async function WithdrawPage({ params }: { params: Promise<{ id: s
           </div>
           <CardDescription>
             Withdrawals are written to the immutable ledger. Allocated bars are marked withdrawn;
-            unallocated quantities are deducted from the customer's pooled balance.
+            unallocated quantities are deducted from the customer&apos;s pooled balance.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <WithdrawalForm
             accountId={id}
-            metals={metalRows}
             vaults={vaultRows}
             unallocated={account.holdings.unallocated.map((u) => ({
               metalCode: u.metalCode,

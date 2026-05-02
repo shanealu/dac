@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -58,26 +58,29 @@ export function CustomerCreateForm({ onCreated }: { onCreated?: (c: Customer) =>
         <Input {...form.register("phone")} placeholder="+9607771234" />
       </Field>
       <Field label="Client type" error={form.formState.errors.clientType?.message}>
-        <Select
-          value={form.watch("clientType")}
-          onValueChange={(v) => form.setValue("clientType", v as "retail" | "institutional")}
-        >
-          <SelectTrigger>
-            <SelectValue>
-              {(value: string) =>
-                value === "retail"
-                  ? "Retail (unallocated)"
-                  : value === "institutional"
-                    ? "Institutional (allocated)"
-                    : value
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="retail">Retail (unallocated)</SelectItem>
-            <SelectItem value="institutional">Institutional (allocated)</SelectItem>
-          </SelectContent>
-        </Select>
+        <Controller
+          control={form.control}
+          name="clientType"
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger>
+                <SelectValue>
+                  {(value: string) =>
+                    value === "retail"
+                      ? "Retail (unallocated)"
+                      : value === "institutional"
+                        ? "Institutional (allocated)"
+                        : value
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="retail">Retail (unallocated)</SelectItem>
+                <SelectItem value="institutional">Institutional (allocated)</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
       </Field>
       <div className="sm:col-span-2 flex justify-end">
         <Button type="submit" disabled={pending}>
