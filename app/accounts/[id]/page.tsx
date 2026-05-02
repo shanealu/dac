@@ -162,7 +162,10 @@ export default async function AccountDetailPage({
 
       <section className="mt-12">
         <Tabs defaultValue="unallocated" className="w-full">
-          <TabsList className="h-auto w-full justify-start rounded-none border-b bg-transparent p-0">
+          <TabsList
+            variant="line"
+            className="h-auto w-full justify-start gap-6 rounded-none border-b p-0"
+          >
             <TabTrigger value="unallocated" count={unallocatedCount}>Unallocated</TabTrigger>
             <TabTrigger value="allocated" count={allocatedCount}>Allocated</TabTrigger>
             <TabTrigger value="transactions" count={txCount}>Transactions</TabTrigger>
@@ -197,10 +200,7 @@ function TabTrigger({
   children: React.ReactNode;
 }) {
   return (
-    <TabsTrigger
-      value={value}
-      className="relative h-10 gap-2 rounded-none border-b-2 border-transparent px-4 text-sm font-medium text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground"
-    >
+    <TabsTrigger value={value} className="h-10 gap-2 px-1 text-sm font-medium">
       {children}
       <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] tabular-nums">
         {count}
