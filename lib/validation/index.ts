@@ -51,7 +51,7 @@ export type AccountCreateInput = z.infer<typeof accountCreateSchema>;
 export const marketPriceCreateSchema = z.object({
   metalCode,
   pricePerKg: positiveDecimal(),
-  currency: z.string().length(3).default("USD"),
+  currency: z.string().length(3).optional(),
   effectiveAt: z.iso.datetime().optional(),
 });
 export type MarketPriceCreateInput = z.infer<typeof marketPriceCreateSchema>;
