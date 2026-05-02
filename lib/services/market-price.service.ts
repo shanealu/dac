@@ -86,3 +86,48 @@ export function valueAt(quantityKg: string, pricePerKg: string | null): string |
   if (pricePerKg === null) return null;
   return D(quantityKg).times(D(pricePerKg)).toFixed(2);
 }
+
+export type PriceSnapshot = {
+  metalId: number;
+  metalCode: string;
+  metalName: string;
+  pricePerKg: string | null;
+  effectiveAt: Date | null;
+  previousPricePerKg: string | null;
+  /** Numeric trend ordered ASC by effective_at — for sparkline rendering. */
+  trend: number[];
+};
+
+/**
+ * Per-metal recent price snapshots: latest price, previous price (for delta),
+ * and a numeric trend window for charting. One row per metal, including metals
+ * with no recorded price (returned as nulls / empty trend).
+ */
+export async function getPriceSnapshots(window = 12): Promise<PriceSnapshot[]> {
+  const allMetals = await db.select().from(metals).orderBy(metals.code).all();
+  return Promise.all(
+    allMetals.map(async (m) => {
+      const rows = await db
+        .select({ pricePerKg: marketPrices.pricePerKg, effectiveAt: marketPrices.effectiveAt })
+        .from(marketPrices)
+        .where(eq(marketPrices.metalId, m.id))
+        .orderBy(desc(marketPrices.effectiveAt))
+        .limit(window)
+        .all();
+      const latest = rows[0] ?? null;
+      const previous = rows[1] ?? null;
+      return {
+        metalId: m.id,
+        metalCode: m.code,
+        metalName: m.name,
+        pricePerKg: latest?.pricePerKg ?? null,
+        effectiveAt: latest?.effectiveAt ?? null,
+        previousPricePerKg: previous?.pricePerKg ?? null,
+        trend: rows
+          .slice()
+          .reverse()
+          .map((r) => Number(r.pricePerKg)),
+      };
+    }),
+  );
+}

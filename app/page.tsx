@@ -4,14 +4,17 @@ import { db } from "@/lib/db/client";
 import { accounts, bars, customers, transactions, unallocatedHoldings } from "@/lib/db/schema";
 import { sql, desc, eq } from "drizzle-orm";
 import { metals } from "@/lib/db/schema";
-import { getCurrentPrices } from "@/lib/services/market-price.service";
+import { getCurrentPrices, getPriceSnapshots } from "@/lib/services/market-price.service";
+import type { PriceSnapshot } from "@/lib/services/market-price.service";
 import { D } from "@/lib/decimal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MetalMark } from "@/components/domain/metal-mark";
+import { Sparkline } from "@/components/domain/sparkline";
 import { StatLabel } from "@/components/domain/stat-label";
-import { fmtDate, fmtKg, fmtUSD } from "@/lib/format";
+import { fmtDate, fmtKg, fmtRelative, fmtUSD } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +26,7 @@ async function loadStats() {
     [accountCountRow],
     [barCountRow],
     prices,
+    snapshots,
     unallocatedTotals,
     allocatedTotals,
     recent,
@@ -35,6 +39,7 @@ async function loadStats() {
       .where(eq(bars.status, "in_custody"))
       .all(),
     getCurrentPrices(),
+    getPriceSnapshots(12),
     db
       .select({
         metalCode: metals.code,
@@ -110,6 +115,7 @@ async function loadStats() {
     totalUSD: anyValued ? totalUSD.toFixed(2) : null,
     recent,
     prices,
+    snapshots,
   };
 }
 
@@ -200,23 +206,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Spot prices</CardTitle>
-            <CardDescription>Most recent admin-set price per kg.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {stats.prices.map((p) => (
-              <div key={p.metalCode} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{p.metalName}</span>
-                <span className="font-mono">{p.pricePerKg ? fmtUSD(p.pricePerKg) : "—"}</span>
-              </div>
-            ))}
-            <div className="pt-2 text-xs text-muted-foreground">
-              Updated {stats.prices[0]?.effectiveAt ? fmtDate(stats.prices[0].effectiveAt) : "—"}
-            </div>
-          </CardContent>
-        </Card>
+        <SpotPricesCard snapshots={stats.snapshots} />
       </div>
 
       <Card className="mt-6">
@@ -304,6 +294,105 @@ function StatCard({
             {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
           </div>
           {icon && <span className="text-muted-foreground">{icon}</span>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function computeDelta(snapshot: PriceSnapshot): {
+  pct: number | null;
+  direction: "up" | "down" | "flat" | null;
+} {
+  if (!snapshot.pricePerKg || !snapshot.previousPricePerKg) {
+    return { pct: null, direction: null };
+  }
+  const latest = D(snapshot.pricePerKg);
+  const prev = D(snapshot.previousPricePerKg);
+  if (prev.isZero()) return { pct: null, direction: null };
+  const pct = latest.minus(prev).div(prev).times(100).toNumber();
+  if (Math.abs(pct) < 0.005) return { pct: 0, direction: "flat" };
+  return { pct, direction: pct > 0 ? "up" : "down" };
+}
+
+function SpotPricesCard({ snapshots }: { snapshots: PriceSnapshot[] }) {
+  const mostRecent = snapshots
+    .map((s) => s.effectiveAt?.getTime() ?? 0)
+    .reduce((a, b) => Math.max(a, b), 0);
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <CardTitle>Spot prices</CardTitle>
+          <span className="rounded-sm border bg-muted/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+            USD / kg
+          </span>
+        </div>
+        <CardDescription>Latest admin-set rates with recent trend.</CardDescription>
+      </CardHeader>
+      <CardContent className="px-0 pb-0">
+        <div className="divide-y border-t">
+          {snapshots.map((s) => {
+            const delta = computeDelta(s);
+            const sparkColor =
+              delta.direction === "up"
+                ? "text-emerald-500/80"
+                : delta.direction === "down"
+                  ? "text-rose-500/80"
+                  : "text-foreground/40";
+            return (
+              <div
+                key={s.metalCode}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-6 py-3.5"
+              >
+                <MetalMark code={s.metalCode} size="sm" />
+
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                      {s.metalCode}
+                    </span>
+                    <span className="truncate text-sm">{s.metalName}</span>
+                  </div>
+                  <div className={cn("mt-1.5 -ml-px", sparkColor)}>
+                    <Sparkline values={s.trend} width={96} height={18} />
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="font-mono text-sm font-medium tabular-nums">
+                    {s.pricePerKg ? fmtUSD(s.pricePerKg) : <span className="text-muted-foreground">—</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] tabular-nums">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-0.5",
+                        delta.direction === "up" && "text-emerald-500/90",
+                        delta.direction === "down" && "text-rose-500/90",
+                        (delta.direction === "flat" || delta.direction === null) &&
+                          "text-muted-foreground",
+                      )}
+                    >
+                      {delta.direction === "up" && <span aria-hidden>▲</span>}
+                      {delta.direction === "down" && <span aria-hidden>▼</span>}
+                      {delta.direction === "flat" && <span aria-hidden>·</span>}
+                      {delta.direction === null && <span aria-hidden>·</span>}
+                      {delta.pct === null ? "—" : `${Math.abs(delta.pct).toFixed(2)}%`}
+                    </span>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="text-muted-foreground">
+                      {s.effectiveAt ? fmtRelative(s.effectiveAt) : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between border-t bg-muted/20 px-6 py-2.5 text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
+          <span>Source · Manual</span>
+          <span>Last tick {mostRecent ? fmtRelative(new Date(mostRecent)) : "—"}</span>
         </div>
       </CardContent>
     </Card>
