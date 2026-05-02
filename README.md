@@ -2,8 +2,6 @@
 
 A demo prototype for **Bare Metals Pvt**, a precious-metals custodian. The platform tracks customer accounts, deposits, withdrawals, valuations, and supports both **allocated** (bar-level) and **unallocated** (pooled) storage across gold, silver, and platinum.
 
-> Built for [Maldives Securities Depository — Assessment 2](./docs/Assessment%202.pdf). The full design rationale, schema, edge-case analysis, and rubric mapping live in [`docs/bare-metals-spec.md`](./docs/bare-metals-spec.md).
-
 ---
 
 ## Tech stack
@@ -42,6 +40,7 @@ bun run db:seed         # reseed the DB (clears + reinserts demo rows)
 bun run db:reset        # rm + migrate + seed (full clean slate)
 bun run db:studio       # open Drizzle Studio
 bun run lint            # eslint
+bun run test            # vitest (service-layer tests for the 8 edge cases)
 ```
 
 The default DB path is `./bare-metals.db` (gitignored). Stop the dev server before running `db:reset` — `better-sqlite3` holds an open file handle that won't notice the file being recreated.
@@ -252,10 +251,7 @@ curl -s 'http://localhost:3000/api/market-prices?metalCode=XAU'
 │   ├── decimal.ts                  # decimal.js helpers
 │   ├── format.ts                   # display helpers (fmtKg, fmtUSD, fmtPurity, …)
 │   └── errors.ts                   # DomainError + subclasses
-├── drizzle/                        # generated migrations + meta
-└── docs/
-    ├── Assessment 2.pdf
-    └── bare-metals-spec.md         # the full technical spec (v1.2)
+└── drizzle/                        # generated migrations + meta
 ```
 
 ---
@@ -269,10 +265,3 @@ curl -s 'http://localhost:3000/api/market-prices?metalCode=XAU'
 - **Multi-currency** — quote prices in MVR / EUR / GBP per customer preference.
 - **Move to Postgres** — Drizzle dialect swap; schema is portable. Worth doing if writer concurrency becomes a bottleneck.
 - **Soft-delete + audit log** for non-financial events (price edits, customer profile changes) for compliance.
-- **Tests** — Vitest + a throwaway DB. The 8 edge cases are the natural test seam.
-
----
-
-## License
-
-Demo / assessment submission. Not licensed for production use.
