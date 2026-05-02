@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import { GaugeIcon, UsersIcon, WalletIcon, ScaleIcon, BarChart3Icon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const links = [
+const links: Array<{ href: string; label: string; icon: typeof GaugeIcon; exact?: boolean }> = [
   { href: "/", label: "Dashboard", icon: GaugeIcon, exact: true },
   { href: "/customers", label: "Customers", icon: UsersIcon },
   { href: "/accounts", label: "Accounts", icon: WalletIcon },
   { href: "/admin/prices", label: "Prices", icon: BarChart3Icon },
   { href: "/admin/bars", label: "Bars", icon: ScaleIcon },
-] as const;
+];
 
 export function SiteNav() {
   const pathname = usePathname();

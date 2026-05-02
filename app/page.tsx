@@ -132,10 +132,10 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" render={<Link href="/customers" />}>
+          <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/customers" />}>
             View customers
           </Button>
-          <Button size="sm" render={<Link href="/admin/prices" />}>
+          <Button size="sm" nativeButton={false} render={<Link href="/admin/prices" />}>
             Set prices
           </Button>
         </div>
@@ -234,7 +234,7 @@ export default async function DashboardPage() {
               <CardTitle>Recent activity</CardTitle>
               <CardDescription>Latest entries on the immutable transaction ledger.</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" render={<Link href="/accounts" />}>
+            <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/accounts" />}>
               All accounts <ArrowUpRightIcon className="size-3.5" />
             </Button>
           </div>

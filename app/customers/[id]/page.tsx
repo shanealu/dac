@@ -33,7 +33,7 @@ export default async function CustomerPage({
         description={customer.email}
         actions={
           <>
-            <Button variant="outline" size="sm" render={<Link href="/customers" />}>
+            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/customers" />}>
               ← All customers
             </Button>
             <AccountCreateButton customerId={customer.id} />
