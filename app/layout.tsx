@@ -21,7 +21,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       suppressHydrationWarning
       className={cn("h-full antialiased", inter.variable, geistMono.variable, "font-sans")}
     >
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      <body
+        suppressHydrationWarning
+        className="flex min-h-full flex-col bg-background text-foreground"
+      >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SiteNav />
           <main className="flex-1">{children}</main>
