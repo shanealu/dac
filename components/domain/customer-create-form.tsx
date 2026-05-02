@@ -54,7 +54,7 @@ export function CustomerCreateForm({ onCreated }: { onCreated?: (c: Customer) =>
       <Field label="Email" error={form.formState.errors.email?.message}>
         <Input type="email" {...form.register("email")} placeholder="ops@acme.mv" />
       </Field>
-      <Field label="Phone (optional)" error={form.formState.errors.phone?.message}>
+      <Field label="Phone" hint="Optional" error={form.formState.errors.phone?.message}>
         <Input {...form.register("phone")} placeholder="+9607771234" />
       </Field>
       <Field label="Client type" error={form.formState.errors.clientType?.message}>
@@ -82,7 +82,10 @@ export function CustomerCreateForm({ onCreated }: { onCreated?: (c: Customer) =>
           )}
         />
       </Field>
-      <div className="sm:col-span-2 flex justify-end">
+      <div className="sm:col-span-2 flex items-center justify-between gap-3 border-t pt-4">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          POST /api/customers
+        </span>
         <Button type="submit" disabled={pending}>
           {pending ? "Creating…" : "Create customer"}
         </Button>
